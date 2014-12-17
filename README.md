@@ -15,3 +15,5 @@ Set up with SBT:
     val apiKey = "" // comes from your config
     val wistia = Wistia(apiKey)
     val response: Future[WisitaResponse] = wisita.upload(file)
+
+#### Get embed HTML
