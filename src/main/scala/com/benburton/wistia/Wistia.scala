@@ -8,7 +8,7 @@ import com.ning.http.multipart._
 import org.apache.commons.codec.binary.Base64
 import play.api.http.{ContentTypeOf, Writeable}
 import play.api.libs.json.Json
-import play.api.libs.ws.ning.NingWSClient
+import play.api.libs.ws.{Response, WS}
 
 import scala.concurrent.Future
 
@@ -28,10 +28,6 @@ class Wistia(apiKey: String) {
   val authPart = new StringPart("api_password", apiKey)
   val authHeader = "Authorization" -> ("Basic " + new String(Base64.encodeBase64(s"api:$apiKey".getBytes)))
 
-  val builder = new AsyncHttpClientConfig.Builder()
-  val client = new NingWSClient(builder.setConnectionTimeoutInMs(timeout).setRequestTimeoutInMs(timeout)
-    .setIdleConnectionTimeoutInMs(timeout).build())
-
   def upload(file: File, options: UploadOptions = UploadOptions.Default): Future[WistiaResponse[Media]] = {
     val mpre = new MultipartRequestEntity(
       options.toParts :+ authPart :+ new FilePart("file", file), new FluentCaseInsensitiveStringsMap)
@@ -40,21 +36,21 @@ class Wistia(apiKey: String) {
     val bytes = baos.toByteArray
     val contentType = mpre.getContentType
 
-    client.url(Urls.Upload).post(bytes)(Writeable.wBytes, ContentTypeOf(Some(contentType)))
+    WS.url(Urls.Upload).post(bytes)(Writeable.wBytes, ContentTypeOf(Some(contentType)))
   }.map(response => WistiaResponse(response.status, obj =
     Some(Json.fromJson(Json.parse(response.body))(Media.Reads).getOrElse(throw new Exception("What?!")))))
 
   def get(hashedId: String): Future[WistiaResponse[Media]] =
-    client.url(Urls.Media(hashedId)).withHeaders(authHeader).get
+    WS.url(Urls.Media(hashedId)).withHeaders(authHeader).get
       .map(response => WistiaResponse(response.status, obj = Some(Json.fromJson[Media](Json.parse(response.body))
       .getOrElse(throw parseException("media")))))
 
   def get(): Future[WistiaResponse[Seq[Media]]] =
-    client.url(Urls.Medias).withHeaders(authHeader).get.map(response => WistiaResponse(response.status, obj =
+    WS.url(Urls.Medias).withHeaders(authHeader).get.map(response => WistiaResponse(response.status, obj =
       Some(Json.fromJson[Seq[Media]](Json.parse(response.body)).getOrElse(throw parseException("media")))))
 
   def getProject(hashedId: String): Future[WistiaResponse[Project]] =
-    client.url(Urls.Project(hashedId)).withHeaders(authHeader).get
+    WS.url(Urls.Project(hashedId)).withHeaders(authHeader).get
       .map(response => { println(Json.prettyPrint(Json.parse(response.body))); WistiaResponse(response.status, obj =
       Some(Json.fromJson[Project](Json.parse(response.body)).getOrElse(throw parseException("project"))))})
 
